@@ -2,8 +2,11 @@ package com.libsmart.view;
 
 import com.libsmart.dao.DocGiaDAO;
 import com.libsmart.model.DocGia;
+import com.libsmart.utils.CsvExporter;
 import com.libsmart.utils.UITheme;
+import com.libsmart.utils.ValidationUtils;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
@@ -13,10 +16,14 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.Date;
+import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -30,12 +37,14 @@ import javax.swing.table.DefaultTableModel;
 
 public class QuanLyDocGiaFrame extends JFrame {
 
-    private JTextField txtMaDG, txtHoTen, txtSoDienThoai, txtEmail, txtSearch;
-    private JButton btnThem, btnSua, btnXoa, btnLamMoi;
+    private JTextField txtMaDG, txtHoTen, txtSoDienThoai, txtEmail, txtNgayHetHan, txtSearch;
+    private JComboBox<String> cbTrangThai;
+    private JButton btnThem, btnSua, btnXoa, btnLamMoi, btnGiaHan, btnKhoaMo;
     private JTable table;
     private DefaultTableModel tableModel;
     private DocGiaDAO docGiaDAO;
     private final Runnable onDataChanged;
+    private List<DocGia> currentDocGiaList = new ArrayList<>();
 
     public QuanLyDocGiaFrame() {
         this(null);
@@ -45,12 +54,22 @@ public class QuanLyDocGiaFrame extends JFrame {
         this.onDataChanged = onDataChanged;
         docGiaDAO = new DocGiaDAO();
         initComponents();
-        loadDataToTable(docGiaDAO.getAllDocGia());
+        loadAllDocGiaSafe();
     }
 
     private void notifyDataChanged() {
         if (onDataChanged != null) {
             onDataChanged.run();
+        }
+    }
+
+    private void loadAllDocGiaSafe() {
+        try {
+            loadDataToTable(docGiaDAO.getAllDocGia());
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this,
+                    ValidationUtils.friendlySqlError(ex, "Lỗi tải danh sách độc giả"),
+                    "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -88,45 +107,65 @@ public class QuanLyDocGiaFrame extends JFrame {
             @Override
             public void keyReleased(KeyEvent e) {
                 String kw = txtSearch.getText().trim();
-                if (kw.isEmpty()) {
-                    loadDataToTable(docGiaDAO.getAllDocGia());
-                } else {
-                    loadDataToTable(docGiaDAO.searchDocGiaByTen(kw));
+                try {
+                    if (kw.isEmpty()) {
+                        loadDataToTable(docGiaDAO.getAllDocGia());
+                    } else {
+                        loadDataToTable(docGiaDAO.searchDocGiaByTen(kw));
+                    }
+                } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(QuanLyDocGiaFrame.this,
+                            ValidationUtils.friendlySqlError(ex, "Lỗi tìm kiếm độc giả"),
+                            "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
 
         // 3. FORM NHẬP LIỆU
-        JPanel panelForm = UITheme.createTitledCard("Thông Tin Độc Giả");
+        JPanel panelForm = UITheme.createTitledCard("Thông Tin Độc Giả & Thẻ Thư Viện");
         panelForm.setLayout(new GridBagLayout());
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 12, 8, 12);
+        gbc.insets = new Insets(7, 12, 7, 12);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         txtMaDG = UITheme.createTextField(false);
         txtHoTen = UITheme.createTextField(true);
         txtSoDienThoai = UITheme.createTextField(true);
         txtEmail = UITheme.createTextField(true);
+        txtNgayHetHan = UITheme.createTextField(true);
+        txtNgayHetHan.setToolTipText("Định dạng yyyy-MM-dd (để trống khi thêm mới sẽ mặc định +1 năm)");
+
+        cbTrangThai = new JComboBox<>(new String[]{"HOAT_DONG - Hoạt động", "KHOA - Khóa"});
+        UITheme.styleComboBox(cbTrangThai);
 
         UITheme.addFormCell(panelForm, gbc, "Mã Độc Giả:", txtMaDG, 0, 0);
         UITheme.addFormCell(panelForm, gbc, "Họ và Tên:", txtHoTen, 2, 0);
         UITheme.addFormCell(panelForm, gbc, "Số Điện Thoại:", txtSoDienThoai, 0, 1);
         UITheme.addFormCell(panelForm, gbc, "Email:", txtEmail, 2, 1);
+        UITheme.addFormCell(panelForm, gbc, "Hạn Thẻ (yyyy-MM-dd):", txtNgayHetHan, 0, 2);
+        UITheme.addFormCell(panelForm, gbc, "Trạng Thái Thẻ:", cbTrangThai, 2, 2);
 
         // 4. BỘ NÚT BẤM
-        JPanel panelButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 8));
+        JPanel panelButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 8));
         panelButtons.setOpaque(false);
 
-        btnThem = UITheme.createButton("Thêm Độc Giả", UITheme.SUCCESS, 140, 36);
-        btnSua = UITheme.createButton("Sửa Độc Giả", UITheme.PRIMARY, 140, 36);
-        btnXoa = UITheme.createButton("Xóa Độc Giả", UITheme.DANGER, 140, 36);
-        btnLamMoi = UITheme.createButton("Làm Mới", UITheme.MUTED, 130, 36);
+        btnThem = UITheme.createButton("Thêm Độc Giả", UITheme.SUCCESS, 125, 36);
+        btnSua = UITheme.createButton("Sửa Độc Giả", UITheme.PRIMARY, 125, 36);
+        btnGiaHan = UITheme.createButton("Gia Hạn +1 Năm", UITheme.WARNING, 140, 36);
+        btnKhoaMo = UITheme.createButton("Khóa / Mở Thẻ", new Color(124, 58, 237), 135, 36);
+        btnXoa = UITheme.createButton("Xóa Độc Giả", UITheme.DANGER, 120, 36);
+        btnLamMoi = UITheme.createButton("Làm Mới", UITheme.MUTED, 105, 36);
+        JButton btnXuatCsv = UITheme.createButton("Xuất CSV", new Color(15, 118, 110), 110, 36);
+        btnXuatCsv.addActionListener(e -> CsvExporter.exportTableToCsv(this, table, "danh_sach_doc_gia.csv"));
 
         panelButtons.add(btnThem);
         panelButtons.add(btnSua);
+        panelButtons.add(btnGiaHan);
+        panelButtons.add(btnKhoaMo);
         panelButtons.add(btnXoa);
         panelButtons.add(btnLamMoi);
+        panelButtons.add(btnXuatCsv);
 
         JPanel panelTopHeader = new JPanel(new BorderLayout(8, 8));
         panelTopHeader.setOpaque(false);
@@ -172,11 +211,16 @@ public class QuanLyDocGiaFrame extends JFrame {
             @Override
             public void mouseClicked(MouseEvent e) {
                 int row = table.getSelectedRow();
-                if (row >= 0) {
-                    txtMaDG.setText(getVal(row, 0));
-                    txtHoTen.setText(getVal(row, 1));
-                    txtSoDienThoai.setText(getVal(row, 2));
-                    txtEmail.setText(getVal(row, 3));
+                if (row >= 0 && row < currentDocGiaList.size()) {
+                    DocGia selected = currentDocGiaList.get(row);
+                    txtMaDG.setText(String.valueOf(selected.getMaDocGia()));
+                    txtHoTen.setText(selected.getHoTen());
+                    txtSoDienThoai.setText(selected.getSoDienThoai());
+                    txtEmail.setText(selected.getEmail());
+                    txtNgayHetHan.setText(selected.getNgayHetHan() != null ? selected.getNgayHetHan().toString() : "");
+                    boolean isActive = "HOAT_DONG".equalsIgnoreCase(selected.getTrangThai());
+                    cbTrangThai.setSelectedIndex(isActive ? 0 : 1);
+                    btnKhoaMo.setText(isActive ? "Khóa Thẻ" : "Mở Khóa Thẻ");
                 }
             }
         });
@@ -184,32 +228,28 @@ public class QuanLyDocGiaFrame extends JFrame {
         btnLamMoi.addActionListener(e -> clearForm());
         btnThem.addActionListener(e -> addDocGia());
         btnSua.addActionListener(e -> updateDocGia());
+        btnGiaHan.addActionListener(e -> giaHanTheDocGia());
+        btnKhoaMo.addActionListener(e -> toggleKhoaMoThe());
         btnXoa.addActionListener(e -> deleteDocGia());
-    }
-
-    private String getVal(int row, int col) {
-        Object obj = tableModel.getValueAt(row, col);
-        return obj != null ? obj.toString() : "";
     }
 
     private void loadDataToTable(List<DocGia> list) {
         tableModel.setRowCount(0);
+        currentDocGiaList = (list != null) ? new ArrayList<>(list) : new ArrayList<>();
         LocalDate today = LocalDate.now();
-        if (list != null) {
-            for (DocGia dg : list) {
-                String trangThai;
-                if (!"HOAT_DONG".equalsIgnoreCase(dg.getTrangThai())) {
-                    trangThai = "Khóa (" + (dg.getTrangThai() != null ? dg.getTrangThai() : "N/A") + ")";
-                } else if (dg.getNgayHetHan() != null && dg.getNgayHetHan().toLocalDate().isBefore(today)) {
-                    trangThai = "Hết hạn";
-                } else {
-                    trangThai = "Hoạt động";
-                }
-                tableModel.addRow(new Object[]{
-                    dg.getMaDocGia(), dg.getHoTen(), dg.getSoDienThoai(), dg.getEmail(),
-                    dg.getNgayHetHan(), trangThai
-                });
+        for (DocGia dg : currentDocGiaList) {
+            String trangThai;
+            if (!"HOAT_DONG".equalsIgnoreCase(dg.getTrangThai())) {
+                trangThai = "Khóa (" + (dg.getTrangThai() != null ? dg.getTrangThai() : "N/A") + ")";
+            } else if (dg.getNgayHetHan() != null && dg.getNgayHetHan().toLocalDate().isBefore(today)) {
+                trangThai = "Hết hạn";
+            } else {
+                trangThai = "Hoạt động";
             }
+            tableModel.addRow(new Object[]{
+                dg.getMaDocGia(), dg.getHoTen(), dg.getSoDienThoai(), dg.getEmail(),
+                dg.getNgayHetHan(), trangThai
+            });
         }
     }
 
@@ -218,23 +258,58 @@ public class QuanLyDocGiaFrame extends JFrame {
         txtHoTen.setText("");
         txtSoDienThoai.setText("");
         txtEmail.setText("");
+        txtNgayHetHan.setText("");
+        cbTrangThai.setSelectedIndex(0);
+        btnKhoaMo.setText("Khóa / Mở Thẻ");
         txtSearch.setText("");
         table.clearSelection();
-        loadDataToTable(docGiaDAO.getAllDocGia());
+        loadAllDocGiaSafe();
+    }
+
+    private DocGia buildValidatedDocGia(int maDG) {
+        String hoTen = txtHoTen.getText().trim();
+        String sdt = txtSoDienThoai.getText().trim();
+        String email = txtEmail.getText().trim();
+        if (hoTen.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập họ và tên độc giả!", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+        if (!ValidationUtils.isValidPhone(sdt)) {
+            JOptionPane.showMessageDialog(this, "Số điện thoại phải gồm 8 đến 15 chữ số!", "Dữ liệu không hợp lệ", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+        if (!email.isEmpty() && !ValidationUtils.isValidEmail(email)) {
+            JOptionPane.showMessageDialog(this, "Địa chỉ email không hợp lệ!", "Dữ liệu không hợp lệ", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+        Date ngayHetHan;
+        try {
+            ngayHetHan = ValidationUtils.parseSqlDate(txtNgayHetHan.getText());
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Dữ liệu không hợp lệ", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+        String trangThai = cbTrangThai.getSelectedIndex() == 1 ? "KHOA" : "HOAT_DONG";
+        return new DocGia(maDG, hoTen, sdt, email, null, ngayHetHan, trangThai);
     }
 
     private void addDocGia() {
-        if (txtHoTen.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập họ và tên độc giả!");
+        DocGia dg = buildValidatedDocGia(0);
+        if (dg == null) {
             return;
         }
-        DocGia dg = new DocGia(0, txtHoTen.getText().trim(), txtSoDienThoai.getText().trim(), txtEmail.getText().trim(), null, null, "HOAT_DONG");
-        if (docGiaDAO.insertDocGia(dg)) {
-            JOptionPane.showMessageDialog(this, "Thêm độc giả thành công!");
-            clearForm();
-            notifyDataChanged();
-        } else {
-            JOptionPane.showMessageDialog(this, "Thêm độc giả thất bại!");
+        try {
+            if (docGiaDAO.insertDocGia(dg)) {
+                JOptionPane.showMessageDialog(this, "Thêm độc giả thành công!");
+                clearForm();
+                notifyDataChanged();
+            } else {
+                JOptionPane.showMessageDialog(this, "Thêm độc giả thất bại!");
+            }
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this,
+                    ValidationUtils.friendlySqlError(ex, "Lỗi cơ sở dữ liệu khi thêm độc giả"),
+                    "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -243,9 +318,12 @@ public class QuanLyDocGiaFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Chọn 1 độc giả trên bảng để sửa!");
             return;
         }
+        int maDG = Integer.parseInt(txtMaDG.getText().trim());
+        DocGia dg = buildValidatedDocGia(maDG);
+        if (dg == null) {
+            return;
+        }
         try {
-            int maDG = Integer.parseInt(txtMaDG.getText().trim());
-            DocGia dg = new DocGia(maDG, txtHoTen.getText().trim(), txtSoDienThoai.getText().trim(), txtEmail.getText().trim(), null, null, null);
             if (docGiaDAO.updateDocGia(dg)) {
                 JOptionPane.showMessageDialog(this, "Cập nhật thành công!");
                 clearForm();
@@ -253,8 +331,70 @@ public class QuanLyDocGiaFrame extends JFrame {
             } else {
                 JOptionPane.showMessageDialog(this, "Cập nhật thất bại!");
             }
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Mã độc giả không hợp lệ!");
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this,
+                    ValidationUtils.friendlySqlError(ex, "Lỗi cơ sở dữ liệu khi cập nhật độc giả"),
+                    "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void giaHanTheDocGia() {
+        if (txtMaDG.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Chọn 1 độc giả trên bảng để gia hạn thẻ!");
+            return;
+        }
+        int maDG = Integer.parseInt(txtMaDG.getText().trim());
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Gia hạn thẻ độc giả mã " + maDG + " thêm 1 năm (và kích hoạt lại nếu đang khóa/hết hạn)?",
+                "Xác nhận gia hạn", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                if (docGiaDAO.giaHanThe(maDG, 1)) {
+                    JOptionPane.showMessageDialog(this, "Gia hạn thẻ thêm 1 năm thành công!");
+                    clearForm();
+                    notifyDataChanged();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Gia hạn thẻ thất bại!");
+                }
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(this,
+                        ValidationUtils.friendlySqlError(ex, "Lỗi gia hạn thẻ độc giả"),
+                        "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void toggleKhoaMoThe() {
+        if (txtMaDG.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Chọn 1 độc giả trên bảng để khóa hoặc mở khóa thẻ!");
+            return;
+        }
+        int row = table.getSelectedRow();
+        String currentStatus = (row >= 0 && row < currentDocGiaList.size())
+                ? currentDocGiaList.get(row).getTrangThai()
+                : (cbTrangThai.getSelectedIndex() == 0 ? "HOAT_DONG" : "KHOA");
+        boolean isActive = "HOAT_DONG".equalsIgnoreCase(currentStatus);
+        String targetStatus = isActive ? "KHOA" : "HOAT_DONG";
+        String actionLabel = isActive ? "khóa" : "mở khóa";
+
+        int maDG = Integer.parseInt(txtMaDG.getText().trim());
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Bạn có chắc chắn muốn " + actionLabel + " thẻ độc giả mã " + maDG + "?",
+                "Xác nhận", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                if (docGiaDAO.capNhatTrangThai(maDG, targetStatus)) {
+                    JOptionPane.showMessageDialog(this, "Đã " + actionLabel + " thẻ độc giả thành công!");
+                    clearForm();
+                    notifyDataChanged();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Thao tác thất bại!");
+                }
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(this,
+                        ValidationUtils.friendlySqlError(ex, "Lỗi cập nhật trạng thái thẻ"),
+                        "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
@@ -265,13 +405,19 @@ public class QuanLyDocGiaFrame extends JFrame {
         }
         int confirm = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn xóa độc giả này?", "Xác nhận", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
-            int maDG = Integer.parseInt(txtMaDG.getText().trim());
-            if (docGiaDAO.deleteDocGia(maDG)) {
-                JOptionPane.showMessageDialog(this, "Xóa thành công!");
-                clearForm();
-                notifyDataChanged();
-            } else {
-                JOptionPane.showMessageDialog(this, "Xóa thất bại!");
+            try {
+                int maDG = Integer.parseInt(txtMaDG.getText().trim());
+                if (docGiaDAO.deleteDocGia(maDG)) {
+                    JOptionPane.showMessageDialog(this, "Xóa thành công!");
+                    clearForm();
+                    notifyDataChanged();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Xóa thất bại!");
+                }
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(this,
+                        ValidationUtils.friendlySqlError(ex, "Không thể xóa độc giả"),
+                        "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
             }
         }
     }

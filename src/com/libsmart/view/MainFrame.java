@@ -32,7 +32,7 @@ import javax.swing.table.DefaultTableModel;
 
 public class MainFrame extends JFrame {
 
-    private JButton btnSach, btnDocGia, btnMuonTra, btnLamMoi, btnDangXuat;
+    private JButton btnSach, btnDocGia, btnMuonTra, btnThongKe, btnTaiKhoan, btnDoiMatKhau, btnLamMoi, btnDangXuat;
     private JLabel lblTongSachValue, lblDocGiaValue, lblDangMuonValue;
     private DefaultTableModel tableOverviewModel;
     private final SachDAO sachDAO;
@@ -81,18 +81,28 @@ public class MainFrame extends JFrame {
         panelHeader.add(lblSubTitle);
         panelSidebar.add(panelHeader, BorderLayout.NORTH);
 
-        JPanel panelMenuButtons = new JPanel(new GridLayout(6, 1, 0, 12));
+        JPanel panelMenuButtons = new JPanel(new GridLayout(8, 1, 0, 8));
         panelMenuButtons.setOpaque(false);
-        panelMenuButtons.setBorder(BorderFactory.createEmptyBorder(26, 16, 20, 16));
+        panelMenuButtons.setBorder(BorderFactory.createEmptyBorder(20, 16, 16, 16));
 
         btnSach = UITheme.createSidebarButton("Quản Lý Sách", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
         btnDocGia = UITheme.createSidebarButton("Quản Lý Độc Giả", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
         btnMuonTra = UITheme.createSidebarButton("Mượn - Trả Sách", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
+        btnThongKe = UITheme.createSidebarButton("Thống Kê - Báo Cáo", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
+        btnDoiMatKhau = UITheme.createSidebarButton("Đổi Mật Khẩu", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
         btnDangXuat = UITheme.createSidebarButton("Đăng Xuất", UITheme.DANGER, new Color(185, 28, 28));
 
         panelMenuButtons.add(btnSach);
         panelMenuButtons.add(btnDocGia);
         panelMenuButtons.add(btnMuonTra);
+        panelMenuButtons.add(btnThongKe);
+        if (currentUser != null && "ADMIN".equalsIgnoreCase(currentUser.getVaiTro())) {
+            btnTaiKhoan = UITheme.createSidebarButton("Quản Lý Tài Khoản", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
+            panelMenuButtons.add(btnTaiKhoan);
+        }
+        if (currentUser != null) {
+            panelMenuButtons.add(btnDoiMatKhau);
+        }
         panelMenuButtons.add(new JLabel()); // khoảng đệm trước nút đăng xuất
         panelMenuButtons.add(btnDangXuat);
 
@@ -191,6 +201,15 @@ public class MainFrame extends JFrame {
         btnSach.addActionListener(e -> openChildFrame(new QuanLySachFrame(this::refreshDashboard)));
         btnDocGia.addActionListener(e -> openChildFrame(new QuanLyDocGiaFrame(this::refreshDashboard)));
         btnMuonTra.addActionListener(e -> openChildFrame(new QuanLyMuonTraFrame(currentUser, this::refreshDashboard)));
+        btnThongKe.addActionListener(e -> openChildFrame(new ThongKeFrame()));
+        if (btnTaiKhoan != null) {
+            btnTaiKhoan.addActionListener(e -> openChildFrame(new QuanLyTaiKhoanFrame(currentUser)));
+        }
+        btnDoiMatKhau.addActionListener(e -> {
+            if (currentUser != null) {
+                new DoiMatKhauDialog(this, currentUser).setVisible(true);
+            }
+        });
         btnLamMoi.addActionListener(e -> refreshDashboard());
 
         btnDangXuat.addActionListener(e -> {
@@ -215,17 +234,17 @@ public class MainFrame extends JFrame {
     public void refreshDashboard() {
         List<Sach> listSach = Collections.emptyList();
         int tongSoSach = 0;
+        int docGiaTichCuc = 0;
+        int dangChoMuon = muonTraDAO.countPhieuDangMuon();
         try {
             listSach = sachDAO.getAllSach();
             tongSoSach = sachDAO.sumTongSoLuongSach();
+            docGiaTichCuc = docGiaDAO.countActiveDocGia();
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this,
-                    "Lỗi tải dữ liệu sách từ cơ sở dữ liệu:\n" + ex.getMessage(),
+                    "Lỗi tải dữ liệu từ cơ sở dữ liệu:\n" + ex.getMessage(),
                     "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
         }
-
-        int docGiaTichCuc = docGiaDAO.countActiveDocGia();
-        int dangChoMuon = muonTraDAO.countPhieuDangMuon();
 
         lblTongSachValue.setText(String.valueOf(tongSoSach));
         lblDocGiaValue.setText(String.valueOf(docGiaTichCuc));

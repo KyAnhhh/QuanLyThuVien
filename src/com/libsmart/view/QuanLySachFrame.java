@@ -2,7 +2,9 @@ package com.libsmart.view;
 
 import com.libsmart.dao.SachDAO;
 import com.libsmart.model.Sach;
+import com.libsmart.utils.CsvExporter;
 import com.libsmart.utils.UITheme;
+import com.libsmart.utils.ValidationUtils;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -15,12 +17,14 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -36,7 +40,8 @@ import javax.swing.table.DefaultTableModel;
 public class QuanLySachFrame extends JFrame {
 
     private JTextField txtMaSach, txtTenSach, txtNamXB, txtSoLuongTong, txtSoLuongCon, txtGiaBia, txtSearch;
-    private JComboBox<String> cbTacGia, cbTheLoai;
+    private JComboBox<String> cbTacGia, cbTheLoai, cbFilterTacGia, cbFilterTheLoai;
+    private JCheckBox chkConHang;
     private JButton btnThem, btnSua, btnXoa, btnLamMoi;
     private JTable table;
     private DefaultTableModel tableModel;
@@ -44,6 +49,7 @@ public class QuanLySachFrame extends JFrame {
     private final Runnable onDataChanged;
     private Map<Integer, String> mapTacGia = new TreeMap<>();
     private Map<Integer, String> mapTheLoai = new TreeMap<>();
+    private List<Sach> allSachList = new ArrayList<>();
     private List<Sach> currentSachList = new ArrayList<>();
 
     public QuanLySachFrame() {
@@ -61,15 +67,23 @@ public class QuanLySachFrame extends JFrame {
     private void loadDanhMucComboBox() {
         cbTacGia.removeAllItems();
         cbTheLoai.removeAllItems();
+        cbFilterTacGia.removeAllItems();
+        cbFilterTheLoai.removeAllItems();
+        cbFilterTacGia.addItem("Tất cả tác giả");
+        cbFilterTheLoai.addItem("Tất cả thể loại");
         try {
             mapTacGia = new TreeMap<>(sachDAO.getMapTacGia());
             for (Map.Entry<Integer, String> entry : mapTacGia.entrySet()) {
-                cbTacGia.addItem(entry.getKey() + " - " + entry.getValue());
+                String item = entry.getKey() + " - " + entry.getValue();
+                cbTacGia.addItem(item);
+                cbFilterTacGia.addItem(item);
             }
 
             mapTheLoai = new TreeMap<>(sachDAO.getMapTheLoai());
             for (Map.Entry<Integer, String> entry : mapTheLoai.entrySet()) {
-                cbTheLoai.addItem(entry.getKey() + " - " + entry.getValue());
+                String item = entry.getKey() + " - " + entry.getValue();
+                cbTheLoai.addItem(item);
+                cbFilterTheLoai.addItem(item);
             }
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this,
@@ -97,11 +111,42 @@ public class QuanLySachFrame extends JFrame {
 
     private void loadAllSachSafe() {
         try {
-            loadDataToTable(sachDAO.getAllSach());
+            allSachList = sachDAO.getAllSach();
+            applySachFilter();
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this,
                     "Lỗi tải danh sách sách:\n" + ex.getMessage(),
                     "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void applySachFilter() {
+        String kw = txtSearch.getText().trim().toLowerCase();
+        int filterTgId = parseFilterComboId(cbFilterTacGia);
+        int filterTlId = parseFilterComboId(cbFilterTheLoai);
+        boolean onlyInStock = chkConHang.isSelected();
+
+        List<Sach> filtered = new ArrayList<>();
+        for (Sach s : allSachList) {
+            boolean matchKw = kw.isEmpty() || (s.getTenSach() != null && s.getTenSach().toLowerCase().contains(kw));
+            boolean matchTg = filterTgId < 0 || s.getMaTacGia() == filterTgId;
+            boolean matchTl = filterTlId < 0 || s.getMaTheLoai() == filterTlId;
+            boolean matchStock = !onlyInStock || s.getSoLuongCon() > 0;
+            if (matchKw && matchTg && matchTl && matchStock) {
+                filtered.add(s);
+            }
+        }
+        loadDataToTable(filtered);
+    }
+
+    private int parseFilterComboId(JComboBox<String> comboBox) {
+        if (comboBox.getSelectedIndex() <= 0 || comboBox.getSelectedItem() == null) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(comboBox.getSelectedItem().toString().split(" - ")[0]);
+        } catch (NumberFormatException ex) {
+            return -1;
         }
     }
 
@@ -121,37 +166,46 @@ public class QuanLySachFrame extends JFrame {
         lblTitle.setFont(UITheme.FONT_TITLE);
         lblTitle.setForeground(UITheme.PRIMARY);
 
-        // 2. TÌM KIẾM
+        // 2. TÌM KIẾM & BỘ LỌC NÂNG CAO
         JPanel panelSearch = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 4));
         panelSearch.setOpaque(false);
 
-        JLabel lblSearch = new JLabel("Tìm kiếm tên sách:");
+        JLabel lblSearch = new JLabel("Tên sách:");
         lblSearch.setFont(UITheme.FONT_LABEL);
         lblSearch.setForeground(UITheme.TEXT_PRIMARY);
 
         txtSearch = UITheme.createTextField(true);
-        txtSearch.setPreferredSize(new Dimension(340, 34));
+        txtSearch.setPreferredSize(new Dimension(220, 32));
+
+        cbFilterTacGia = new JComboBox<>();
+        UITheme.styleComboBox(cbFilterTacGia);
+        cbFilterTacGia.setPreferredSize(new Dimension(170, 32));
+
+        cbFilterTheLoai = new JComboBox<>();
+        UITheme.styleComboBox(cbFilterTheLoai);
+        cbFilterTheLoai.setPreferredSize(new Dimension(170, 32));
+
+        chkConHang = new JCheckBox("Chỉ sách còn hàng");
+        chkConHang.setFont(UITheme.FONT_INPUT);
+        chkConHang.setForeground(UITheme.TEXT_PRIMARY);
+        chkConHang.setOpaque(false);
+        chkConHang.setFocusPainted(false);
 
         panelSearch.add(lblSearch);
         panelSearch.add(txtSearch);
+        panelSearch.add(cbFilterTacGia);
+        panelSearch.add(cbFilterTheLoai);
+        panelSearch.add(chkConHang);
 
         txtSearch.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
-                String kw = txtSearch.getText().trim();
-                try {
-                    if (kw.isEmpty()) {
-                        loadDataToTable(sachDAO.getAllSach());
-                    } else {
-                        loadDataToTable(sachDAO.searchSachByTen(kw));
-                    }
-                } catch (SQLException ex) {
-                    JOptionPane.showMessageDialog(QuanLySachFrame.this,
-                            "Lỗi tìm kiếm sách:\n" + ex.getMessage(),
-                            "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
-                }
+                applySachFilter();
             }
         });
+        cbFilterTacGia.addActionListener(e -> applySachFilter());
+        cbFilterTheLoai.addActionListener(e -> applySachFilter());
+        chkConHang.addActionListener(e -> applySachFilter());
 
         // 3. FORM NHẬP LIỆU
         JPanel panelForm = UITheme.createTitledCard("Thông Tin Sách");
@@ -176,8 +230,8 @@ public class QuanLySachFrame extends JFrame {
 
         UITheme.addFormCell(panelForm, gbc, "Mã Sách:", txtMaSach, 0, 0);
         UITheme.addFormCell(panelForm, gbc, "Tên Sách:", txtTenSach, 2, 0);
-        UITheme.addFormCell(panelForm, gbc, "Tác Giả:", cbTacGia, 0, 1);
-        UITheme.addFormCell(panelForm, gbc, "Thể Loại:", cbTheLoai, 2, 1);
+        UITheme.addFormCell(panelForm, gbc, "Tác Giả:", wrapComboWithManageButton(cbTacGia, 0), 0, 1);
+        UITheme.addFormCell(panelForm, gbc, "Thể Loại:", wrapComboWithManageButton(cbTheLoai, 1), 2, 1);
         UITheme.addFormCell(panelForm, gbc, "Năm Xuất Bản:", txtNamXB, 0, 2);
         UITheme.addFormCell(panelForm, gbc, "Số Lượng Tổng:", txtSoLuongTong, 2, 2);
         UITheme.addFormCell(panelForm, gbc, "Số Lượng Còn:", txtSoLuongCon, 0, 3);
@@ -187,15 +241,18 @@ public class QuanLySachFrame extends JFrame {
         JPanel panelButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 8));
         panelButtons.setOpaque(false);
 
-        btnThem = UITheme.createButton("Thêm Sách", UITheme.SUCCESS, 130, 36);
-        btnSua = UITheme.createButton("Sửa Sách", UITheme.PRIMARY, 130, 36);
-        btnXoa = UITheme.createButton("Xóa Sách", UITheme.DANGER, 130, 36);
-        btnLamMoi = UITheme.createButton("Làm Mới", UITheme.MUTED, 130, 36);
+        btnThem = UITheme.createButton("Thêm Sách", UITheme.SUCCESS, 125, 36);
+        btnSua = UITheme.createButton("Sửa Sách", UITheme.PRIMARY, 125, 36);
+        btnXoa = UITheme.createButton("Xóa Sách", UITheme.DANGER, 125, 36);
+        btnLamMoi = UITheme.createButton("Làm Mới", UITheme.MUTED, 120, 36);
+        JButton btnXuatCsv = UITheme.createButton("Xuất CSV", new java.awt.Color(15, 118, 110), 120, 36);
+        btnXuatCsv.addActionListener(e -> CsvExporter.exportTableToCsv(this, table, "danh_sach_sach.csv"));
 
         panelButtons.add(btnThem);
         panelButtons.add(btnSua);
         panelButtons.add(btnXoa);
         panelButtons.add(btnLamMoi);
+        panelButtons.add(btnXuatCsv);
 
         JPanel panelTopHeader = new JPanel(new BorderLayout(8, 8));
         panelTopHeader.setOpaque(false);
@@ -285,28 +342,89 @@ public class QuanLySachFrame extends JFrame {
         txtSoLuongCon.setText("");
         txtGiaBia.setText("");
         txtSearch.setText("");
+        chkConHang.setSelected(false);
         table.clearSelection();
         loadDanhMucComboBox();
         loadAllSachSafe();
     }
 
-    private void addSach() {
-        if (txtTenSach.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập tên sách!");
-            return;
+    private JPanel wrapComboWithManageButton(JComboBox<String> comboBox, int initialTabIndex) {
+        JPanel wrapper = new JPanel(new BorderLayout(6, 0));
+        wrapper.setOpaque(false);
+        wrapper.add(comboBox, BorderLayout.CENTER);
+
+        JButton btnManage = UITheme.createButton("+", UITheme.PRIMARY, 38, 32);
+        btnManage.setToolTipText("Quản lý / Thêm nhanh Tác giả & Thể loại");
+        btnManage.addActionListener(e -> openDanhMucDialog(initialTabIndex));
+        wrapper.add(btnManage, BorderLayout.EAST);
+        return wrapper;
+    }
+
+    private void openDanhMucDialog(int initialTabIndex) {
+        DanhMucDialog dialog = new DanhMucDialog(this, sachDAO, initialTabIndex);
+        dialog.setVisible(true);
+        if (dialog.isDataChanged()) {
+            loadDanhMucComboBox();
+            loadAllSachSafe();
+            if (dialog.getLastAddedTacGiaId() > 0) {
+                selectComboById(cbTacGia, dialog.getLastAddedTacGiaId());
+            }
+            if (dialog.getLastAddedTheLoaiId() > 0) {
+                selectComboById(cbTheLoai, dialog.getLastAddedTheLoaiId());
+            }
+            notifyDataChanged();
+        }
+    }
+
+    private Sach parseAndValidateSach(int maSach, boolean isUpdate) {
+        String tenSach = txtTenSach.getText().trim();
+        if (tenSach.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập tên sách!", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
+            return null;
         }
         if (cbTacGia.getSelectedItem() == null || cbTheLoai.getSelectedItem() == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn Tác giả và Thể loại!");
-            return;
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn Tác giả và Thể loại!", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
+            return null;
         }
         try {
             int maTG = Integer.parseInt(cbTacGia.getSelectedItem().toString().split(" - ")[0]);
             int maTL = Integer.parseInt(cbTheLoai.getSelectedItem().toString().split(" - ")[0]);
             int namXB = Integer.parseInt(txtNamXB.getText().trim());
-            int soLuong = Integer.parseInt(txtSoLuongTong.getText().trim());
+            int maxYear = LocalDate.now().getYear() + 1;
+            if (namXB < 1900 || namXB > maxYear) {
+                JOptionPane.showMessageDialog(this, "Năm xuất bản phải nằm trong khoảng 1900 - " + maxYear + "!", "Dữ liệu không hợp lệ", JOptionPane.WARNING_MESSAGE);
+                return null;
+            }
+            int soLuongTong = Integer.parseInt(txtSoLuongTong.getText().trim());
+            if (soLuongTong < 0) {
+                JOptionPane.showMessageDialog(this, "Số lượng tổng không được âm!", "Dữ liệu không hợp lệ", JOptionPane.WARNING_MESSAGE);
+                return null;
+            }
+            int soLuongCon = isUpdate
+                    ? Integer.parseInt(txtSoLuongCon.getText().trim())
+                    : soLuongTong;
+            if (soLuongCon < 0 || soLuongCon > soLuongTong) {
+                JOptionPane.showMessageDialog(this, "Số lượng còn phải nằm trong khoảng 0 đến " + soLuongTong + "!", "Dữ liệu không hợp lệ", JOptionPane.WARNING_MESSAGE);
+                return null;
+            }
             BigDecimal giaBia = new BigDecimal(txtGiaBia.getText().trim());
+            if (giaBia.compareTo(BigDecimal.ZERO) < 0) {
+                JOptionPane.showMessageDialog(this, "Giá bìa không được âm!", "Dữ liệu không hợp lệ", JOptionPane.WARNING_MESSAGE);
+                return null;
+            }
+            return new Sach(maSach, tenSach, maTG, maTL, namXB, soLuongTong, soLuongCon, giaBia);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập số hợp lệ cho Năm xuất bản, Số lượng và Giá bìa!", "Dữ liệu không hợp lệ", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+    }
 
-            Sach s = new Sach(0, txtTenSach.getText().trim(), maTG, maTL, namXB, soLuong, soLuong, giaBia);
+    private void addSach() {
+        Sach s = parseAndValidateSach(0, false);
+        if (s == null) {
+            return;
+        }
+        try {
             if (sachDAO.insertSach(s)) {
                 JOptionPane.showMessageDialog(this, "Thêm sách thành công!");
                 clearForm();
@@ -314,10 +432,10 @@ public class QuanLySachFrame extends JFrame {
             } else {
                 JOptionPane.showMessageDialog(this, "Thêm thất bại!");
             }
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập số hợp lệ cho Năm, Số lượng và Giá!");
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, "Lỗi cơ sở dữ liệu khi thêm sách:\n" + ex.getMessage(), "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    ValidationUtils.friendlySqlError(ex, "Lỗi cơ sở dữ liệu khi thêm sách"),
+                    "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -326,20 +444,12 @@ public class QuanLySachFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Chọn 1 dòng để sửa!");
             return;
         }
-        if (cbTacGia.getSelectedItem() == null || cbTheLoai.getSelectedItem() == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn Tác giả và Thể loại!");
+        int maSach = Integer.parseInt(txtMaSach.getText().trim());
+        Sach s = parseAndValidateSach(maSach, true);
+        if (s == null) {
             return;
         }
         try {
-            int maSach = Integer.parseInt(txtMaSach.getText().trim());
-            int maTG = Integer.parseInt(cbTacGia.getSelectedItem().toString().split(" - ")[0]);
-            int maTL = Integer.parseInt(cbTheLoai.getSelectedItem().toString().split(" - ")[0]);
-            int namXB = Integer.parseInt(txtNamXB.getText().trim());
-            int soLuong = Integer.parseInt(txtSoLuongTong.getText().trim());
-            int soLuongCon = Integer.parseInt(txtSoLuongCon.getText().trim());
-            BigDecimal giaBia = new BigDecimal(txtGiaBia.getText().trim());
-
-            Sach s = new Sach(maSach, txtTenSach.getText().trim(), maTG, maTL, namXB, soLuong, soLuongCon, giaBia);
             if (sachDAO.updateSach(s)) {
                 JOptionPane.showMessageDialog(this, "Sửa thành công!");
                 clearForm();
@@ -347,10 +457,10 @@ public class QuanLySachFrame extends JFrame {
             } else {
                 JOptionPane.showMessageDialog(this, "Sửa thất bại!");
             }
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Lỗi nhập liệu!");
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, "Lỗi cơ sở dữ liệu khi cập nhật sách:\n" + ex.getMessage(), "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    ValidationUtils.friendlySqlError(ex, "Lỗi cơ sở dữ liệu khi cập nhật sách"),
+                    "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -371,7 +481,9 @@ public class QuanLySachFrame extends JFrame {
                     JOptionPane.showMessageDialog(this, "Xóa thất bại!");
                 }
             } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(this, "Không thể xóa sách (có thể sách đang được tham chiếu trong phiếu mượn):\n" + ex.getMessage(), "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this,
+                        ValidationUtils.friendlySqlError(ex, "Không thể xóa sách"),
+                        "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
             }
         }
     }

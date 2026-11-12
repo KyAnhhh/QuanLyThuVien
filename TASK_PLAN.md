@@ -76,3 +76,64 @@ Tài liệu theo dõi tiến độ thực hiện qua 4 Phase theo thứ tự ưu
 - [x] Đồng bộ bảng màu, font chữ, kích thước nút/input, khoảng cách padding và trạng thái hover/focus thông qua [`UITheme.java`](src/com/libsmart/utils/UITheme.java) trên [`LoginFrame.java`](src/com/libsmart/view/LoginFrame.java), [`MainFrame.java`](src/com/libsmart/view/MainFrame.java), [`QuanLySachFrame.java`](src/com/libsmart/view/QuanLySachFrame.java), [`QuanLyDocGiaFrame.java`](src/com/libsmart/view/QuanLyDocGiaFrame.java), [`QuanLyMuonTraFrame.java`](src/com/libsmart/view/QuanLyMuonTraFrame.java).
 - [x] Cải thiện bố cục bảng dữ liệu (độ rộng cột, căn lề, zebra striping, định dạng tiền VNĐ, màu trạng thái Đang mượn / Đã trả / Quá hạn / Hoạt động / Hết hạn, hiển thị thẻ phiên làm việc ở Sidebar Dashboard).
 - [ ] Kiểm tra luồng thao tác đầu-cuối (đăng nhập → quản lý sách/độc giả → mượn/trả → đăng xuất) sau khi hoàn thiện UI *(chưa chạy kiểm thử tương tác trực tiếp với MySQL server do service `MySQL80` đang dừng — đã biên dịch sạch 17/17 file nguồn Java)*.
+
+---
+
+## Phase 5: Hoàn thiện Vận hành Thư viện
+
+### 5.1. Quản lý Tác giả & Thể loại
+- [x] Bổ sung CRUD cho `TacGia` và `TheLoai` trong [`SachDAO.java`](src/com/libsmart/dao/SachDAO.java) (thêm, sửa tên, xóa có kiểm tra ràng buộc khóa ngoại).
+- [x] Tạo hộp thoại quản lý danh mục [`DanhMucDialog.java`](src/com/libsmart/view/DanhMucDialog.java) và gắn nút thêm/quản lý nhanh ngay bên cạnh `cbTacGia`, `cbTheLoai` trên [`QuanLySachFrame.java`](src/com/libsmart/view/QuanLySachFrame.java).
+- [x] Tự động nạp lại ComboBox và chọn đúng Tác giả / Thể loại vừa thêm trên [`QuanLySachFrame.java`](src/com/libsmart/view/QuanLySachFrame.java).
+
+### 5.2. Gia hạn & Khóa/Mở khóa thẻ Độc giả
+- [x] Chuẩn hóa xử lý lỗi trong [`DocGiaDAO.java`](src/com/libsmart/dao/DocGiaDAO.java) (log `Logger` và ném `SQLException` thay vì nuốt lỗi).
+- [x] Bổ sung hàm `giaHanThe(maDocGia, soNam)` và `capNhatTrangThai(maDocGia, trangThai)` trong [`DocGiaDAO.java`](src/com/libsmart/dao/DocGiaDAO.java).
+- [x] Cập nhật [`QuanLyDocGiaFrame.java`](src/com/libsmart/view/QuanLyDocGiaFrame.java): thêm ô `Ngày Hết Hạn`, `Trạng Thái` (`HOAT_DONG` / `KHOA`) cùng nút thao tác nhanh **Gia hạn +1 năm** và **Khóa / Mở khóa**.
+
+### 5.3. Validate dữ liệu & Thông báo lỗi chi tiết
+- [x] Tạo tiện ích kiểm tra dữ liệu và diễn giải lỗi SQL thân thiện [`ValidationUtils.java`](src/com/libsmart/utils/ValidationUtils.java) (trùng khóa `UNIQUE`, vướng khóa ngoại `FOREIGN KEY`, SĐT, Email, ngày `yyyy-MM-dd`).
+- [x] Áp dụng validate đầy đủ trên [`QuanLySachFrame.java`](src/com/libsmart/view/QuanLySachFrame.java) (năm xuất bản, `0 <= SoLuongCon <= SoLuongTong`, giá bìa `>= 0`) và [`QuanLyDocGiaFrame.java`](src/com/libsmart/view/QuanLyDocGiaFrame.java) (họ tên, SĐT, Email, ngày hết hạn).
+
+---
+
+## Phase 6: Nâng cấp Nghiệp vụ Mượn – Trả & Tìm kiếm
+
+### 6.1. Mượn nhiều sách trong một phiếu
+- [x] Cho phép thêm nhiều sách vào giỏ sách tạm trên [`QuanLyMuonTraFrame.java`](src/com/libsmart/view/QuanLyMuonTraFrame.java) và lưu nhiều dòng `ChiTietPhieuMuon` trong cùng một transaction qua [`MuonTraDAO.taoPhieuMuonNhieuSach`](src/com/libsmart/dao/MuonTraDAO.java).
+- [x] Hỗ trợ trả từng cuốn (`traTheoChiTiet`) hoặc trả cả phiếu (`traSachChiTiet`) an toàn, tự động chốt `PhieuMuon.TrangThai = 'DA_TRA'` khi đã trả hết.
+
+### 6.2. Quy định hạn mức mượn & Ràng buộc quá hạn
+- [x] Giới hạn số lượng sách đang mượn tối đa của một độc giả (`MAX_SACH_DANG_MUON = 5`).
+- [x] Chặn lập phiếu mượn mới nếu độc giả đang có phiếu quá hạn chưa trả (`countPhieuQuaHanCuaDocGia`).
+
+### 6.3. Bộ lọc & Tra cứu nâng cao
+- [x] Thêm bộ lọc trạng thái (`Tất cả`, `Đang mượn`, `Quá hạn`, `Đã trả`) trên [`QuanLyMuonTraFrame.java`](src/com/libsmart/view/QuanLyMuonTraFrame.java) và hiển thị cột `Mã CT`, `Thủ Thư`, `Ghi Chú`.
+- [x] Thêm bộ lọc Tác giả / Thể loại / Chỉ sách còn hàng trên [`QuanLySachFrame.java`](src/com/libsmart/view/QuanLySachFrame.java).
+
+---
+
+## Phase 7: Cấu hình, Bảo mật & Phân quyền
+
+### 7.1. Tách cấu hình kết nối CSDL
+- [x] Đọc thông số JDBC (URL, user, password) từ `config.properties` (có fallback mặc định và file mẫu [`config.properties.example`](config.properties.example)) trong [`DBConnection.java`](src/com/libsmart/utils/DBConnection.java).
+
+### 7.2. Mã hóa mật khẩu & Đổi mật khẩu
+- [x] Tạo [`PasswordUtils.java`](src/com/libsmart/utils/PasswordUtils.java) (`PBKDF2WithHmacSHA256` + salt), băm mật khẩu khi lưu và tự động nâng cấp mật khẩu cũ khi đăng nhập trong [`NguoiDungDAO.java`](src/com/libsmart/dao/NguoiDungDAO.java).
+- [x] Thêm hộp thoại [`DoiMatKhauDialog.java`](src/com/libsmart/view/DoiMatKhauDialog.java) và nút **Đổi Mật Khẩu** trên [`MainFrame.java`](src/com/libsmart/view/MainFrame.java).
+
+### 7.3. Quản trị Tài khoản & Phân quyền
+- [x] Thêm màn hình [`QuanLyTaiKhoanFrame.java`](src/com/libsmart/view/QuanLyTaiKhoanFrame.java) (thêm thủ thư, đổi vai trò `ADMIN` / `THU_THU`, đặt lại mật khẩu, khóa/mở tài khoản) chỉ hiển thị với tài khoản `ADMIN` trên [`MainFrame.java`](src/com/libsmart/view/MainFrame.java) (và cập nhật tài khoản mẫu `ADMIN` + `THU_THU` trong [`MySql_DBQLTV.sql`](MySql_DBQLTV.sql)).
+
+---
+
+## Phase 8: Thống kê Báo cáo & Kiểm thử
+
+### 8.1. Màn hình Thống kê & Báo cáo
+- [x] Tạo [`ThongKeDAO.java`](src/com/libsmart/dao/ThongKeDAO.java) và [`ThongKeFrame.java`](src/com/libsmart/view/ThongKeFrame.java) (gắn nút **Thống Kê - Báo Cáo** trên [`MainFrame.java`](src/com/libsmart/view/MainFrame.java)) thống kê danh sách phiếu quá hạn kèm SĐT/Email liên hệ, tổng tiền phạt theo tháng/năm và Top 20 sách mượn nhiều nhất.
+
+### 8.2. Xuất dữ liệu CSV
+- [x] Tạo [`CsvExporter.java`](src/com/libsmart/utils/CsvExporter.java) xuất file `.csv` chuẩn UTF-8 BOM (mở đúng tiếng Việt trên Excel) và gắn nút **Xuất CSV** trên [`QuanLySachFrame.java`](src/com/libsmart/view/QuanLySachFrame.java), [`QuanLyDocGiaFrame.java`](src/com/libsmart/view/QuanLyDocGiaFrame.java), [`QuanLyMuonTraFrame.java`](src/com/libsmart/view/QuanLyMuonTraFrame.java) và 3 tab của [`ThongKeFrame.java`](src/com/libsmart/view/ThongKeFrame.java).
+
+### 8.3. Kiểm thử tự động (`test/`)
+- [x] Viết bộ unit test [`LibraryLogicTest.java`](test/com/libsmart/LibraryLogicTest.java) kiểm thử validate dữ liệu, mã hóa/kiểm tra mật khẩu, hạn thẻ độc giả, tính tiền phạt quá hạn và xuất CSV (`32/32` test pass).
