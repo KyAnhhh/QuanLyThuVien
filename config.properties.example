@@ -1,0 +1,4 @@
+# Sao chép file này thành config.properties ở thư mục gốc dự án để tùy chỉnh kết nối MySQL
+db.url=jdbc:mysql://localhost:3306/QuanLyThuVien?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
+db.user=root
+db.password=123456

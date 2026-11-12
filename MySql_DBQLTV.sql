@@ -93,9 +93,11 @@ VALUES
 ('Nhập Môn CSDL MySQL', 1, 2, 2022, 5, 5, 85000.00),
 ('Cấu Trúc Dữ Liệu & Giải Thuật', 2, 1, 2024, 15, 12, 150000.00);
 
--- 5. Thêm tài khoản Đăng nhập
+-- 5. Thêm tài khoản Đăng nhập (ADMIN và Thủ thư)
 INSERT INTO NguoiDung (TenDangNhap, MatKhau, HoTen, VaiTro) 
-VALUES ('admin', 'admin', 'Thủ Thư Admin', 'THU_THU')
+VALUES 
+('admin', 'admin', 'Quản Trị Viên', 'ADMIN'),
+('thuthu', '123456', 'Thủ Thư Hệ Thống', 'THU_THU')
 ON DUPLICATE KEY UPDATE TenDangNhap=TenDangNhap;
 
 

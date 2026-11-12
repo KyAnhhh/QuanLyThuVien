@@ -6,15 +6,21 @@ public class NguoiDung {
     private String matKhau;
     private String hoTen;
     private String vaiTro;
+    private boolean trangThai = true;
 
     public NguoiDung() {}
 
     public NguoiDung(int maNguoiDung, String tenDangNhap, String matKhau, String hoTen, String vaiTro) {
+        this(maNguoiDung, tenDangNhap, matKhau, hoTen, vaiTro, true);
+    }
+
+    public NguoiDung(int maNguoiDung, String tenDangNhap, String matKhau, String hoTen, String vaiTro, boolean trangThai) {
         this.maNguoiDung = maNguoiDung;
         this.tenDangNhap = tenDangNhap;
         this.matKhau = matKhau;
         this.hoTen = hoTen;
         this.vaiTro = vaiTro;
+        this.trangThai = trangThai;
     }
 
     public int getMaNguoiDung() { return maNguoiDung; }
@@ -31,4 +37,7 @@ public class NguoiDung {
 
     public String getVaiTro() { return vaiTro; }
     public void setVaiTro(String vaiTro) { this.vaiTro = vaiTro; }
+
+    public boolean isTrangThai() { return trangThai; }
+    public void setTrangThai(boolean trangThai) { this.trangThai = trangThai; }
 }

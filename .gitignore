@@ -8,6 +8,9 @@
 *.log
 hs_err_pid*
 
+# Local DB credentials config
+/config.properties
+
 # OS files
 .DS_Store
 Thumbs.db
