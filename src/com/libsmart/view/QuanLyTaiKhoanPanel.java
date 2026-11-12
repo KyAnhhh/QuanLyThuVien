@@ -19,7 +19,6 @@ import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -31,9 +30,9 @@ import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableModel;
 
 /**
- * Màn hình quản trị tài khoản Người dùng / Thủ thư (chỉ dành cho ADMIN).
+ * Màn hình Quản trị tài khoản Người dùng / Thủ thư dạng JPanel (chỉ dành cho ADMIN).
  */
-public class QuanLyTaiKhoanFrame extends JFrame {
+public class QuanLyTaiKhoanPanel extends JPanel implements RefreshableView {
 
     private JTextField txtMaND, txtTenDangNhap, txtHoTen;
     private JPasswordField txtMatKhau;
@@ -46,32 +45,30 @@ public class QuanLyTaiKhoanFrame extends JFrame {
     private final NguoiDung currentUser;
     private List<NguoiDung> currentList = new ArrayList<>();
 
-    public QuanLyTaiKhoanFrame(NguoiDung currentUser) {
+    public QuanLyTaiKhoanPanel(NguoiDung currentUser) {
         this.currentUser = currentUser;
         this.nguoiDungDAO = new NguoiDungDAO();
         initComponents();
+    }
+
+    @Override
+    public void refreshData() {
         loadDataSafe();
     }
 
     private void initComponents() {
-        setTitle("LIB-SMART | Quản lý tài khoản hệ thống");
-        setSize(980, 640);
-        setMinimumSize(new Dimension(860, 560));
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setLocationRelativeTo(null);
+        setLayout(new BorderLayout(12, 12));
+        setBackground(UITheme.BG_APP);
+        setBorder(BorderFactory.createEmptyBorder(16, 20, 14, 20));
 
-        JPanel panelMain = new JPanel(new BorderLayout(14, 14));
-        panelMain.setBackground(UITheme.BG_APP);
-        panelMain.setBorder(BorderFactory.createEmptyBorder(16, 22, 16, 22));
-
-        JLabel lblTitle = new JLabel("QUẢN LÝ TÀI KHOẢN THỦ THƯ & QUẢN TRỊ", SwingConstants.CENTER);
+        JLabel lblTitle = new JLabel("QUẢN LÝ TÀI KHOẢN THỦ THƯ & QUẢN TRỊ", SwingConstants.LEFT);
         lblTitle.setFont(UITheme.FONT_TITLE);
         lblTitle.setForeground(UITheme.PRIMARY);
 
         JPanel panelForm = UITheme.createTitledCard("Thông Tin Tài Khoản");
         panelForm.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(7, 12, 7, 12);
+        gbc.insets = new Insets(6, 10, 6, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         txtMaND = UITheme.createTextField(false);
@@ -91,14 +88,14 @@ public class QuanLyTaiKhoanFrame extends JFrame {
         UITheme.addFormCell(panelForm, gbc, "Vai Trò:", cbVaiTro, 2, 1);
         UITheme.addFormCell(panelForm, gbc, "Mật Khẩu (Tạo mới):", txtMatKhau, 0, 2);
 
-        JPanel panelButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 8));
+        JPanel panelButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 6));
         panelButtons.setOpaque(false);
 
-        btnThem = UITheme.createButton("Thêm Tài Khoản", UITheme.SUCCESS, 145, 36);
-        btnSua = UITheme.createButton("Cập Nhật", UITheme.PRIMARY, 120, 36);
-        btnResetPass = UITheme.createButton("Đặt Lại MK", UITheme.WARNING, 125, 36);
-        btnKhoaMo = UITheme.createButton("Khóa / Mở TK", new Color(124, 58, 237), 140, 36);
-        btnLamMoi = UITheme.createButton("Làm Mới", UITheme.MUTED, 115, 36);
+        btnThem = UITheme.createButton("Thêm Tài Khoản", UITheme.SUCCESS, 140, 34);
+        btnSua = UITheme.createButton("Cập Nhật", UITheme.PRIMARY, 115, 34);
+        btnResetPass = UITheme.createButton("Đặt Lại MK", UITheme.WARNING, 120, 34);
+        btnKhoaMo = UITheme.createButton("Khóa / Mở TK", new Color(124, 58, 237), 135, 34);
+        btnLamMoi = UITheme.createButton("Làm Mới", UITheme.MUTED, 110, 34);
 
         panelButtons.add(btnThem);
         panelButtons.add(btnSua);
@@ -112,7 +109,7 @@ public class QuanLyTaiKhoanFrame extends JFrame {
         panelTop.add(panelForm, BorderLayout.CENTER);
         panelTop.add(panelButtons, BorderLayout.SOUTH);
 
-        panelMain.add(panelTop, BorderLayout.NORTH);
+        add(panelTop, BorderLayout.NORTH);
 
         String[] columns = {"Mã ND", "Tên Đăng Nhập", "Họ và Tên", "Vai Trò", "Trạng Thái"};
         tableModel = new DefaultTableModel(columns, 0) {
@@ -131,8 +128,7 @@ public class QuanLyTaiKhoanFrame extends JFrame {
         table.getColumnModel().getColumn(3).setPreferredWidth(120);
         table.getColumnModel().getColumn(4).setPreferredWidth(130);
 
-        panelMain.add(scrollPane, BorderLayout.CENTER);
-        add(panelMain);
+        add(scrollPane, BorderLayout.CENTER);
 
         table.addMouseListener(new MouseAdapter() {
             @Override

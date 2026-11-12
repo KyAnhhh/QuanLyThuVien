@@ -1,44 +1,48 @@
 package com.libsmart.view;
 
-import com.libsmart.dao.DocGiaDAO;
-import com.libsmart.dao.MuonTraDAO;
-import com.libsmart.dao.SachDAO;
 import com.libsmart.model.NguoiDung;
-import com.libsmart.model.Sach;
 import com.libsmart.utils.UITheme;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.GraphicsEnvironment;
 import java.awt.GridLayout;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import java.sql.SQLException;
-import java.util.Collections;
+import java.awt.Rectangle;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
-import javax.swing.table.DefaultTableModel;
 
+/**
+ * Cửa sổ chính Single-Page Application (Sidebar cố định + nội dung CardLayout bên phải).
+ */
 public class MainFrame extends JFrame {
 
-    private JButton btnSach, btnDocGia, btnMuonTra, btnThongKe, btnTaiKhoan, btnDoiMatKhau, btnLamMoi, btnDangXuat;
-    private JLabel lblTongSachValue, lblDocGiaValue, lblDangMuonValue;
-    private DefaultTableModel tableOverviewModel;
-    private final SachDAO sachDAO;
-    private final DocGiaDAO docGiaDAO;
-    private final MuonTraDAO muonTraDAO;
+    private static final String CARD_DASHBOARD = "DASHBOARD";
+    private static final String CARD_SACH = "SACH";
+    private static final String CARD_DOC_GIA = "DOC_GIA";
+    private static final String CARD_MUON_TRA = "MUON_TRA";
+    private static final String CARD_THONG_KE = "THONG_KE";
+    private static final String CARD_TAI_KHOAN = "TAI_KHOAN";
+
     private final NguoiDung currentUser;
+    private CardLayout cardLayout;
+    private JPanel panelCardHost;
+
+    private final Map<String, RefreshableView> viewMap = new LinkedHashMap<>();
+    private final List<JButton> navButtons = new ArrayList<>();
+    private JButton btnDashboard;
 
     public MainFrame() {
         this(null);
@@ -46,30 +50,26 @@ public class MainFrame extends JFrame {
 
     public MainFrame(NguoiDung currentUser) {
         this.currentUser = currentUser;
-        this.sachDAO = new SachDAO();
-        this.docGiaDAO = new DocGiaDAO();
-        this.muonTraDAO = new MuonTraDAO();
         initComponents();
-        refreshDashboard();
+        navigateTo(CARD_DASHBOARD, btnDashboard);
     }
 
     private void initComponents() {
-        setTitle("LIB-SMART | Bảng điều khiển hệ thống");
-        setSize(1120, 700);
-        setMinimumSize(new Dimension(960, 620));
+        setTitle("LIB-SMART | Hệ thống quản lý thư viện");
+        applyResponsiveWindowSize();
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
         // ================= 1. SIDEBAR BÊN TRÁI =================
         JPanel panelSidebar = new JPanel(new BorderLayout());
-        panelSidebar.setPreferredSize(new Dimension(250, 700));
+        panelSidebar.setPreferredSize(new Dimension(240, 680));
         panelSidebar.setBackground(UITheme.BG_SIDEBAR);
 
         JLabel lblSidebarTitle = new JLabel("LIB-SMART", SwingConstants.CENTER);
         lblSidebarTitle.setFont(new Font("Segoe UI", Font.BOLD, 24));
         lblSidebarTitle.setForeground(new Color(96, 165, 250));
-        lblSidebarTitle.setBorder(BorderFactory.createEmptyBorder(28, 12, 4, 12));
+        lblSidebarTitle.setBorder(BorderFactory.createEmptyBorder(24, 12, 4, 12));
 
         JLabel lblSubTitle = new JLabel("Library Management", SwingConstants.CENTER);
         lblSubTitle.setFont(new Font("Segoe UI", Font.ITALIC, 12));
@@ -81,29 +81,46 @@ public class MainFrame extends JFrame {
         panelHeader.add(lblSubTitle);
         panelSidebar.add(panelHeader, BorderLayout.NORTH);
 
-        JPanel panelMenuButtons = new JPanel(new GridLayout(8, 1, 0, 8));
+        JPanel panelMenuButtons = new JPanel(new GridLayout(9, 1, 0, 6));
         panelMenuButtons.setOpaque(false);
-        panelMenuButtons.setBorder(BorderFactory.createEmptyBorder(20, 16, 16, 16));
+        panelMenuButtons.setBorder(BorderFactory.createEmptyBorder(16, 14, 12, 14));
 
-        btnSach = UITheme.createSidebarButton("Quản Lý Sách", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
-        btnDocGia = UITheme.createSidebarButton("Quản Lý Độc Giả", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
-        btnMuonTra = UITheme.createSidebarButton("Mượn - Trả Sách", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
-        btnThongKe = UITheme.createSidebarButton("Thống Kê - Báo Cáo", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
-        btnDoiMatKhau = UITheme.createSidebarButton("Đổi Mật Khẩu", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
-        btnDangXuat = UITheme.createSidebarButton("Đăng Xuất", UITheme.DANGER, new Color(185, 28, 28));
+        btnDashboard = registerNavButton("Tổng Quan", CARD_DASHBOARD);
+        JButton btnSach = registerNavButton("Quản Lý Sách", CARD_SACH);
+        JButton btnDocGia = registerNavButton("Quản Lý Độc Giả", CARD_DOC_GIA);
+        JButton btnMuonTra = registerNavButton("Mượn - Trả Sách", CARD_MUON_TRA);
+        JButton btnThongKe = registerNavButton("Thống Kê - Báo Cáo", CARD_THONG_KE);
 
+        panelMenuButtons.add(btnDashboard);
         panelMenuButtons.add(btnSach);
         panelMenuButtons.add(btnDocGia);
         panelMenuButtons.add(btnMuonTra);
         panelMenuButtons.add(btnThongKe);
-        if (currentUser != null && "ADMIN".equalsIgnoreCase(currentUser.getVaiTro())) {
-            btnTaiKhoan = UITheme.createSidebarButton("Quản Lý Tài Khoản", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
+
+        boolean isAdmin = currentUser != null && "ADMIN".equalsIgnoreCase(currentUser.getVaiTro());
+        if (isAdmin) {
+            JButton btnTaiKhoan = registerNavButton("Quản Lý Tài Khoản", CARD_TAI_KHOAN);
             panelMenuButtons.add(btnTaiKhoan);
         }
+
         if (currentUser != null) {
+            JButton btnDoiMatKhau = UITheme.createSidebarButton(
+                    "Đổi Mật Khẩu", UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
+            btnDoiMatKhau.addActionListener(e -> new DoiMatKhauDialog(this, currentUser).setVisible(true));
             panelMenuButtons.add(btnDoiMatKhau);
         }
+
         panelMenuButtons.add(new JLabel()); // khoảng đệm trước nút đăng xuất
+
+        JButton btnDangXuat = UITheme.createSidebarButton("Đăng Xuất", UITheme.DANGER, new Color(185, 28, 28));
+        btnDangXuat.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "Bạn có chắc chắn muốn đăng xuất?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                this.dispose();
+                new LoginFrame().setVisible(true);
+            }
+        });
         panelMenuButtons.add(btnDangXuat);
 
         panelSidebar.add(panelMenuButtons, BorderLayout.CENTER);
@@ -113,7 +130,7 @@ public class MainFrame extends JFrame {
         String vaiTro = (currentUser != null) ? currentUser.getVaiTro() : "GUEST";
         JPanel panelSession = new JPanel(new GridLayout(2, 1, 0, 2));
         panelSession.setBackground(new Color(15, 23, 42));
-        panelSession.setBorder(BorderFactory.createEmptyBorder(12, 16, 14, 16));
+        panelSession.setBorder(BorderFactory.createEmptyBorder(10, 16, 12, 16));
 
         JLabel lblUser = new JLabel("Thủ thư: " + tenThuThu);
         lblUser.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -127,64 +144,24 @@ public class MainFrame extends JFrame {
         panelSession.add(lblRole);
         panelSidebar.add(panelSession, BorderLayout.SOUTH);
 
-        // ================= 2. NỘI DUNG CHÍNH BÊN PHẢI =================
-        JPanel panelMainContent = new JPanel(new BorderLayout(16, 16));
-        panelMainContent.setBackground(UITheme.BG_APP);
-        panelMainContent.setBorder(BorderFactory.createEmptyBorder(20, 24, 16, 24));
+        // ================= 2. VÙNG NỘI DUNG ĐỘNG BÊN PHẢI (CARDLAYOUT) =================
+        JPanel panelRightShell = new JPanel(new BorderLayout());
+        panelRightShell.setBackground(UITheme.BG_APP);
 
-        JPanel panelTopHeader = new JPanel(new BorderLayout(10, 14));
-        panelTopHeader.setOpaque(false);
+        cardLayout = new CardLayout();
+        panelCardHost = new JPanel(cardLayout);
+        panelCardHost.setBackground(UITheme.BG_APP);
 
-        JPanel panelTitleRow = new JPanel(new BorderLayout());
-        panelTitleRow.setOpaque(false);
+        registerView(CARD_DASHBOARD, new DashboardPanel());
+        registerView(CARD_SACH, new QuanLySachPanel());
+        registerView(CARD_DOC_GIA, new QuanLyDocGiaPanel());
+        registerView(CARD_MUON_TRA, new QuanLyMuonTraPanel(currentUser));
+        registerView(CARD_THONG_KE, new ThongKePanel());
+        if (isAdmin) {
+            registerView(CARD_TAI_KHOAN, new QuanLyTaiKhoanPanel(currentUser));
+        }
 
-        JLabel lblWelcome = new JLabel("BẢNG ĐIỀU KHIỂN HỆ THỐNG");
-        lblWelcome.setFont(UITheme.FONT_TITLE);
-        lblWelcome.setForeground(UITheme.TEXT_PRIMARY);
-
-        btnLamMoi = UITheme.createButton("Làm Mới Số Liệu", UITheme.PRIMARY, 155, 34);
-        panelTitleRow.add(lblWelcome, BorderLayout.WEST);
-        panelTitleRow.add(btnLamMoi, BorderLayout.EAST);
-
-        JPanel panelCards = new JPanel(new GridLayout(1, 3, 16, 0));
-        panelCards.setOpaque(false);
-
-        lblTongSachValue = createCardValueLabel(UITheme.PRIMARY);
-        lblDocGiaValue = createCardValueLabel(UITheme.SUCCESS);
-        lblDangMuonValue = createCardValueLabel(UITheme.WARNING);
-
-        panelCards.add(createStatCard("TỔNG SỐ SÁCH", lblTongSachValue, UITheme.PRIMARY));
-        panelCards.add(createStatCard("ĐỘC GIẢ TÍCH CỰC", lblDocGiaValue, UITheme.SUCCESS));
-        panelCards.add(createStatCard("ĐANG CHO MƯỢN", lblDangMuonValue, UITheme.WARNING));
-
-        panelTopHeader.add(panelTitleRow, BorderLayout.NORTH);
-        panelTopHeader.add(panelCards, BorderLayout.CENTER);
-
-        panelMainContent.add(panelTopHeader, BorderLayout.NORTH);
-
-        JPanel panelTableOverview = UITheme.createTitledCard("DANH SÁCH SÁCH HIỆN CÓ TRONG HỆ THỐNG (TOP 10)");
-        panelTableOverview.setLayout(new BorderLayout(5, 5));
-
-        String[] columns = {"Mã Sách", "Tên Sách", "Năm XB", "Tổng Số", "Còn Lại", "Giá Bìa"};
-        tableOverviewModel = new DefaultTableModel(columns, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-        JTable tableOverview = new JTable(tableOverviewModel);
-        JScrollPane scrollPane = new JScrollPane(tableOverview);
-        UITheme.styleTable(tableOverview, scrollPane, 0, 2, 3, 4);
-        tableOverview.getColumnModel().getColumn(5).setCellRenderer(UITheme.createStripedRenderer(SwingConstants.RIGHT));
-        tableOverview.getColumnModel().getColumn(0).setPreferredWidth(75);
-        tableOverview.getColumnModel().getColumn(1).setPreferredWidth(300);
-        tableOverview.getColumnModel().getColumn(2).setPreferredWidth(85);
-        tableOverview.getColumnModel().getColumn(3).setPreferredWidth(85);
-        tableOverview.getColumnModel().getColumn(4).setPreferredWidth(85);
-        tableOverview.getColumnModel().getColumn(5).setPreferredWidth(120);
-
-        panelTableOverview.add(scrollPane, BorderLayout.CENTER);
-        panelMainContent.add(panelTableOverview, BorderLayout.CENTER);
+        panelRightShell.add(panelCardHost, BorderLayout.CENTER);
 
         String userInfo = (currentUser != null)
                 ? "Phiên làm việc: " + currentUser.getHoTen() + " (" + currentUser.getVaiTro() + ") | "
@@ -192,99 +169,44 @@ public class MainFrame extends JFrame {
         JLabel lblFooter = new JLabel(userInfo + "Lib-Smart v1.0 | Hệ thống Quản lý Thư viện", SwingConstants.RIGHT);
         lblFooter.setFont(new Font("Segoe UI", Font.ITALIC, 11));
         lblFooter.setForeground(UITheme.TEXT_SECONDARY);
-        panelMainContent.add(lblFooter, BorderLayout.SOUTH);
+        lblFooter.setBorder(BorderFactory.createEmptyBorder(0, 16, 8, 20));
+        panelRightShell.add(lblFooter, BorderLayout.SOUTH);
 
         add(panelSidebar, BorderLayout.WEST);
-        add(panelMainContent, BorderLayout.CENTER);
-
-        // ================= 3. SỰ KIỆN =================
-        btnSach.addActionListener(e -> openChildFrame(new QuanLySachFrame(this::refreshDashboard)));
-        btnDocGia.addActionListener(e -> openChildFrame(new QuanLyDocGiaFrame(this::refreshDashboard)));
-        btnMuonTra.addActionListener(e -> openChildFrame(new QuanLyMuonTraFrame(currentUser, this::refreshDashboard)));
-        btnThongKe.addActionListener(e -> openChildFrame(new ThongKeFrame()));
-        if (btnTaiKhoan != null) {
-            btnTaiKhoan.addActionListener(e -> openChildFrame(new QuanLyTaiKhoanFrame(currentUser)));
-        }
-        btnDoiMatKhau.addActionListener(e -> {
-            if (currentUser != null) {
-                new DoiMatKhauDialog(this, currentUser).setVisible(true);
-            }
-        });
-        btnLamMoi.addActionListener(e -> refreshDashboard());
-
-        btnDangXuat.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn đăng xuất?", "Xác nhận", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION) {
-                this.dispose();
-                new LoginFrame().setVisible(true);
-            }
-        });
+        add(panelRightShell, BorderLayout.CENTER);
     }
 
-    private void openChildFrame(JFrame childFrame) {
-        childFrame.addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosed(WindowEvent e) {
-                refreshDashboard();
-            }
-        });
-        childFrame.setVisible(true);
+    private void applyResponsiveWindowSize() {
+        Rectangle maxBounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        int width = Math.min(1160, Math.max(800, maxBounds.width - 16));
+        int height = Math.min(680, Math.max(540, maxBounds.height - 16));
+        setSize(width, height);
+        setMinimumSize(new Dimension(Math.min(960, width), Math.min(580, height)));
     }
 
-    public void refreshDashboard() {
-        List<Sach> listSach = Collections.emptyList();
-        int tongSoSach = 0;
-        int docGiaTichCuc = 0;
-        int dangChoMuon = muonTraDAO.countPhieuDangMuon();
-        try {
-            listSach = sachDAO.getAllSach();
-            tongSoSach = sachDAO.sumTongSoLuongSach();
-            docGiaTichCuc = docGiaDAO.countActiveDocGia();
-        } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Lỗi tải dữ liệu từ cơ sở dữ liệu:\n" + ex.getMessage(),
-                    "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
-        }
+    private JButton registerNavButton(String title, String cardKey) {
+        JButton btn = UITheme.createSidebarButton(title, UITheme.BG_SIDEBAR_BTN, UITheme.BG_SIDEBAR_BTN_HOVER);
+        btn.addActionListener(e -> navigateTo(cardKey, btn));
+        navButtons.add(btn);
+        return btn;
+    }
 
-        lblTongSachValue.setText(String.valueOf(tongSoSach));
-        lblDocGiaValue.setText(String.valueOf(docGiaTichCuc));
-        lblDangMuonValue.setText(String.valueOf(dangChoMuon));
-
-        tableOverviewModel.setRowCount(0);
-        for (int i = 0; i < Math.min(listSach.size(), 10); i++) {
-            Sach s = listSach.get(i);
-            tableOverviewModel.addRow(new Object[]{
-                s.getMaSach(), s.getTenSach(), s.getNamXuatBan(),
-                s.getSoLuongTong(), s.getSoLuongCon(), UITheme.formatCurrency(s.getGiaBia())
-            });
+    private void registerView(String cardKey, JPanel panel) {
+        panelCardHost.add(panel, cardKey);
+        if (panel instanceof RefreshableView) {
+            viewMap.put(cardKey, (RefreshableView) panel);
         }
     }
 
-    private JLabel createCardValueLabel(Color color) {
-        JLabel lblValue = new JLabel("0");
-        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 26));
-        lblValue.setForeground(color);
-        lblValue.setBorder(BorderFactory.createEmptyBorder(0, 14, 10, 14));
-        return lblValue;
-    }
-
-    private JPanel createStatCard(String title, JLabel lblValue, Color color) {
-        JPanel card = new JPanel(new BorderLayout());
-        card.setPreferredSize(new Dimension(210, 92));
-        card.setBackground(UITheme.BG_CARD);
-        card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(UITheme.BORDER_COLOR, 1),
-                BorderFactory.createMatteBorder(0, 5, 0, 0, color)));
-
-        JLabel lblTitle = new JLabel(title);
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblTitle.setForeground(UITheme.TEXT_SECONDARY);
-        lblTitle.setBorder(BorderFactory.createEmptyBorder(12, 14, 4, 14));
-
-        card.add(lblTitle, BorderLayout.NORTH);
-        card.add(lblValue, BorderLayout.CENTER);
-
-        return card;
+    private void navigateTo(String cardKey, JButton activeButton) {
+        cardLayout.show(panelCardHost, cardKey);
+        for (JButton btn : navButtons) {
+            UITheme.setSidebarButtonActive(btn, btn == activeButton);
+        }
+        RefreshableView view = viewMap.get(cardKey);
+        if (view != null) {
+            view.refreshData();
+        }
     }
 
     public static void main(String[] args) {

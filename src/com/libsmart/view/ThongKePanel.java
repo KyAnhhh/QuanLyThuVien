@@ -15,7 +15,6 @@ import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -26,9 +25,9 @@ import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableModel;
 
 /**
- * Màn hình Thống kê & Báo cáo tổng hợp của hệ thống Lib-Smart.
+ * Màn hình Thống kê & Báo cáo tổng hợp dạng JPanel trong kiến trúc Single-Page.
  */
-public class ThongKeFrame extends JFrame {
+public class ThongKePanel extends JPanel implements RefreshableView {
 
     private final ThongKeDAO thongKeDAO;
     private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm");
@@ -38,22 +37,20 @@ public class ThongKeFrame extends JFrame {
     private JLabel lblTongQuaHan, lblTongTienPhat;
     private JComboBox<String> cbNamPhat;
 
-    public ThongKeFrame() {
+    public ThongKePanel() {
         this.thongKeDAO = new ThongKeDAO();
         initComponents();
+    }
+
+    @Override
+    public void refreshData() {
         loadAllReports();
     }
 
     private void initComponents() {
-        setTitle("LIB-SMART | Thống kê & Báo cáo thư viện");
-        setSize(1080, 680);
-        setMinimumSize(new Dimension(920, 580));
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setLocationRelativeTo(null);
-
-        JPanel panelMain = new JPanel(new BorderLayout(12, 12));
-        panelMain.setBackground(UITheme.BG_APP);
-        panelMain.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
+        setLayout(new BorderLayout(12, 12));
+        setBackground(UITheme.BG_APP);
+        setBorder(BorderFactory.createEmptyBorder(16, 20, 14, 20));
 
         JPanel panelHeader = new JPanel(new BorderLayout());
         panelHeader.setOpaque(false);
@@ -71,9 +68,8 @@ public class ThongKeFrame extends JFrame {
         tabbedPane.addTab("Doanh Thu Tiền Phạt", buildFinesTab());
         tabbedPane.addTab("Top Sách Mượn Nhiều Nhất", buildTopBooksTab());
 
-        panelMain.add(panelHeader, BorderLayout.NORTH);
-        panelMain.add(tabbedPane, BorderLayout.CENTER);
-        add(panelMain);
+        add(panelHeader, BorderLayout.NORTH);
+        add(tabbedPane, BorderLayout.CENTER);
     }
 
     private JPanel buildOverdueTab() {
@@ -98,14 +94,14 @@ public class ThongKeFrame extends JFrame {
         UITheme.styleTable(tableQuaHan, scroll, 0, 2, 5, 6, 7);
         tableQuaHan.getColumnModel().getColumn(8).setCellRenderer(UITheme.createStripedRenderer(SwingConstants.RIGHT));
         tableQuaHan.getColumnModel().getColumn(0).setPreferredWidth(70);
-        tableQuaHan.getColumnModel().getColumn(1).setPreferredWidth(150);
-        tableQuaHan.getColumnModel().getColumn(2).setPreferredWidth(115);
-        tableQuaHan.getColumnModel().getColumn(3).setPreferredWidth(160);
-        tableQuaHan.getColumnModel().getColumn(4).setPreferredWidth(190);
-        tableQuaHan.getColumnModel().getColumn(5).setPreferredWidth(120);
-        tableQuaHan.getColumnModel().getColumn(6).setPreferredWidth(95);
-        tableQuaHan.getColumnModel().getColumn(7).setPreferredWidth(100);
-        tableQuaHan.getColumnModel().getColumn(8).setPreferredWidth(115);
+        tableQuaHan.getColumnModel().getColumn(1).setPreferredWidth(140);
+        tableQuaHan.getColumnModel().getColumn(2).setPreferredWidth(110);
+        tableQuaHan.getColumnModel().getColumn(3).setPreferredWidth(150);
+        tableQuaHan.getColumnModel().getColumn(4).setPreferredWidth(180);
+        tableQuaHan.getColumnModel().getColumn(5).setPreferredWidth(115);
+        tableQuaHan.getColumnModel().getColumn(6).setPreferredWidth(90);
+        tableQuaHan.getColumnModel().getColumn(7).setPreferredWidth(95);
+        tableQuaHan.getColumnModel().getColumn(8).setPreferredWidth(110);
 
         btnExport.addActionListener(e -> CsvExporter.exportTableToCsv(this, tableQuaHan, "phieu_qua_han.csv"));
 
@@ -179,14 +175,14 @@ public class ThongKeFrame extends JFrame {
         tableTopSach = new JTable(modelTopSach);
         JScrollPane scroll = new JScrollPane(tableTopSach);
         UITheme.styleTable(tableTopSach, scroll, 0, 1, 5, 6, 7);
-        tableTopSach.getColumnModel().getColumn(0).setPreferredWidth(60);
-        tableTopSach.getColumnModel().getColumn(1).setPreferredWidth(75);
-        tableTopSach.getColumnModel().getColumn(2).setPreferredWidth(250);
-        tableTopSach.getColumnModel().getColumn(3).setPreferredWidth(150);
-        tableTopSach.getColumnModel().getColumn(4).setPreferredWidth(150);
-        tableTopSach.getColumnModel().getColumn(5).setPreferredWidth(110);
-        tableTopSach.getColumnModel().getColumn(6).setPreferredWidth(115);
-        tableTopSach.getColumnModel().getColumn(7).setPreferredWidth(110);
+        tableTopSach.getColumnModel().getColumn(0).setPreferredWidth(55);
+        tableTopSach.getColumnModel().getColumn(1).setPreferredWidth(70);
+        tableTopSach.getColumnModel().getColumn(2).setPreferredWidth(230);
+        tableTopSach.getColumnModel().getColumn(3).setPreferredWidth(140);
+        tableTopSach.getColumnModel().getColumn(4).setPreferredWidth(140);
+        tableTopSach.getColumnModel().getColumn(5).setPreferredWidth(105);
+        tableTopSach.getColumnModel().getColumn(6).setPreferredWidth(110);
+        tableTopSach.getColumnModel().getColumn(7).setPreferredWidth(105);
 
         panel.add(top, BorderLayout.NORTH);
         panel.add(scroll, BorderLayout.CENTER);
@@ -204,7 +200,6 @@ public class ThongKeFrame extends JFrame {
 
     private void loadAllReports() {
         try {
-            // 1. Quá hạn
             List<Object[]> overdueRows = thongKeDAO.getDanhSachQuaHan();
             modelQuaHan.setRowCount(0);
             for (Object[] r : overdueRows) {
@@ -216,7 +211,6 @@ public class ThongKeFrame extends JFrame {
             }
             lblTongQuaHan.setText("Tổng số sách đang quá hạn: " + overdueRows.size());
 
-            // 2. Năm tiền phạt
             Object prevSelected = cbNamPhat.getSelectedItem();
             cbNamPhat.removeAllItems();
             cbNamPhat.addItem("Tất cả các năm");
@@ -228,7 +222,6 @@ public class ThongKeFrame extends JFrame {
             }
             loadFinesForSelectedYear();
 
-            // 3. Top sách
             List<Object[]> topBooks = thongKeDAO.getTopSachMuonNhieuNhat(20);
             modelTopSach.setRowCount(0);
             for (Object[] r : topBooks) {

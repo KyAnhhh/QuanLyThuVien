@@ -137,3 +137,24 @@ Tài liệu theo dõi tiến độ thực hiện qua 4 Phase theo thứ tự ưu
 
 ### 8.3. Kiểm thử tự động (`test/`)
 - [x] Viết bộ unit test [`LibraryLogicTest.java`](test/com/libsmart/LibraryLogicTest.java) kiểm thử validate dữ liệu, mã hóa/kiểm tra mật khẩu, hạn thẻ độc giả, tính tiền phạt quá hạn và xuất CSV (`32/32` test pass).
+
+---
+
+## Phase 9: Chuyển đổi kiến trúc Single-Page Dashboard (`CardLayout`)
+
+### 9.1. Interface điều phối & Trạng thái Active Sidebar
+- [x] Tạo interface [`RefreshableView.java`](src/com/libsmart/view/RefreshableView.java) (`refreshData()`) cho tất cả panel con trong `CardLayout`.
+- [x] Cập nhật [`UITheme.java`](src/com/libsmart/utils/UITheme.java) bổ sung `setSidebarButtonActive(...)` với vạch nhấn trái và giữ trạng thái active khi hover.
+
+### 9.2. Chuyển đổi các màn hình con sang `JPanel`
+- [x] Tách phần tổng quan từ `MainFrame` thành [`DashboardPanel.java`](src/com/libsmart/view/DashboardPanel.java).
+- [x] Chuyển đổi các màn hình quản lý thành `JPanel`: [`QuanLySachPanel.java`](src/com/libsmart/view/QuanLySachPanel.java), [`QuanLyDocGiaPanel.java`](src/com/libsmart/view/QuanLyDocGiaPanel.java), [`QuanLyMuonTraPanel.java`](src/com/libsmart/view/QuanLyMuonTraPanel.java), [`ThongKePanel.java`](src/com/libsmart/view/ThongKePanel.java), [`QuanLyTaiKhoanPanel.java`](src/com/libsmart/view/QuanLyTaiKhoanPanel.java).
+- [x] Giữ [`DanhMucDialog.java`](src/com/libsmart/view/DanhMucDialog.java) và [`DoiMatKhauDialog.java`](src/com/libsmart/view/DoiMatKhauDialog.java) dạng modal `JDialog`, lấy cửa sổ cha qua `SwingUtilities.getWindowAncestor(...)`.
+
+### 9.3. Tái cấu trúc [`MainFrame.java`](src/com/libsmart/view/MainFrame.java) & Kích thước tương thích màn hình Laptop
+- [x] Cố định Sidebar bên trái (thêm mục **Tổng Quan**, giữ phân quyền `ADMIN` cho **Quản Lý Tài Khoản**), chuyển vùng phải sang `CardLayout` và tự động gọi `refreshData()` mỗi lần chuyển tab qua `navigateTo(...)`.
+- [x] Áp dụng kích thước mặc định `1160x680` (`MinimumSize` `960x580`) có giới hạn an toàn theo `GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()` để không bị che bởi Taskbar Windows.
+
+### 9.4. Dọn dẹp & Kiểm chứng
+- [x] Xóa 5 file `*Frame.java` cũ (`QuanLySachFrame`, `QuanLyDocGiaFrame`, `QuanLyMuonTraFrame`, `ThongKeFrame`, `QuanLyTaiKhoanFrame`) và rà soát `src/` + `test/` đảm bảo không còn tham chiếu/import cũ.
+- [x] Biên dịch lại sạch toàn bộ `src/` (`27` files) + `test/` (`1` file) và chạy [`LibraryLogicTest.java`](test/com/libsmart/LibraryLogicTest.java) (`32/32` test pass).

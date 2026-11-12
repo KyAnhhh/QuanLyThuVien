@@ -5,7 +5,10 @@ import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
+import java.awt.RenderingHints;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
@@ -37,6 +40,7 @@ public final class UITheme {
     public static final Color BG_SIDEBAR = new Color(24, 34, 48);
     public static final Color BG_SIDEBAR_BTN = new Color(36, 50, 68);
     public static final Color BG_SIDEBAR_BTN_HOVER = new Color(49, 68, 92);
+    public static final Color BG_SIDEBAR_BTN_ACTIVE = new Color(30, 58, 95);
 
     public static final Color PRIMARY = new Color(37, 99, 235);
     public static final Color SUCCESS = new Color(22, 163, 74);
@@ -73,16 +77,35 @@ public final class UITheme {
         return CURRENCY_FORMAT.format(amount) + " đ";
     }
 
+    private static JButton createFlatPaintedButton(String text, int cornerRadius) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getBackground());
+                if (cornerRadius > 0) {
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), cornerRadius, cornerRadius);
+                } else {
+                    g2.fillRect(0, 0, getWidth(), getHeight());
+                }
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btn.setOpaque(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setForeground(Color.WHITE);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
+
     public static JButton createButton(String text, Color bgColor, int width, int height) {
-        JButton btn = new JButton(text);
+        JButton btn = createFlatPaintedButton(text, 8);
         btn.setFont(FONT_BUTTON);
         btn.setBackground(bgColor);
-        btn.setForeground(Color.WHITE);
-        btn.setOpaque(true);
-        btn.setContentAreaFilled(true);
-        btn.setFocusPainted(false);
         btn.setBorderPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setPreferredSize(new Dimension(width, height));
 
         Color hoverColor = adjustBrightness(bgColor, 0.88f);
@@ -101,30 +124,48 @@ public final class UITheme {
     }
 
     public static JButton createSidebarButton(String text, Color bgColor, Color hoverColor) {
-        JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        JButton btn = createFlatPaintedButton(text, 0);
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         btn.setBackground(bgColor);
-        btn.setForeground(Color.WHITE);
-        btn.setOpaque(true);
-        btn.setContentAreaFilled(true);
-        btn.setFocusPainted(false);
-        btn.setBorderPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setBorderPainted(true);
         btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.setBorder(BorderFactory.createEmptyBorder(12, 18, 12, 18));
+        btn.putClientProperty("sidebar.baseBg", bgColor);
+        btn.putClientProperty("sidebar.active", Boolean.FALSE);
+        btn.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 14));
 
         btn.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
-                btn.setBackground(hoverColor);
+                if (!Boolean.TRUE.equals(btn.getClientProperty("sidebar.active"))) {
+                    btn.setBackground(hoverColor);
+                }
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-                btn.setBackground(bgColor);
+                boolean active = Boolean.TRUE.equals(btn.getClientProperty("sidebar.active"));
+                Color base = (Color) btn.getClientProperty("sidebar.baseBg");
+                btn.setBackground(active ? BG_SIDEBAR_BTN_ACTIVE : base);
             }
         });
         return btn;
+    }
+
+    public static void setSidebarButtonActive(JButton btn, boolean active) {
+        if (btn == null) {
+            return;
+        }
+        btn.putClientProperty("sidebar.active", active);
+        Color base = (Color) btn.getClientProperty("sidebar.baseBg");
+        if (active) {
+            btn.setBackground(BG_SIDEBAR_BTN_ACTIVE);
+            btn.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createMatteBorder(0, 4, 0, 0, new Color(96, 165, 250)),
+                    BorderFactory.createEmptyBorder(10, 14, 10, 14)));
+        } else {
+            btn.setBackground(base != null ? base : BG_SIDEBAR_BTN);
+            btn.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 14));
+        }
     }
 
     public static JTextField createTextField(boolean editable) {
