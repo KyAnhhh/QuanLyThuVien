@@ -152,6 +152,71 @@ public class SachDAO {
         }
     }
 
+    private int insertLookup(String sql, String ten, String logLabel) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, ten.trim());
+            if (ps.executeUpdate() > 0) {
+                try (ResultSet rs = ps.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        return rs.getInt(1);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi thêm " + logLabel + ": " + ten, e);
+            throw e;
+        }
+        return -1;
+    }
+
+    private boolean updateLookup(String sql, int id, String ten, String logLabel) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, ten.trim());
+            ps.setInt(2, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi cập nhật " + logLabel + " mã: " + id, e);
+            throw e;
+        }
+    }
+
+    private boolean deleteLookup(String sql, int id, String logLabel) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi xóa " + logLabel + " mã: " + id, e);
+            throw e;
+        }
+    }
+
+    public int insertTacGia(String tenTacGia) throws SQLException {
+        return insertLookup("INSERT INTO TacGia (TenTacGia) VALUES (?)", tenTacGia, "tác giả");
+    }
+
+    public boolean updateTacGia(int maTacGia, String tenTacGia) throws SQLException {
+        return updateLookup("UPDATE TacGia SET TenTacGia=? WHERE MaTacGia=?", maTacGia, tenTacGia, "tác giả");
+    }
+
+    public boolean deleteTacGia(int maTacGia) throws SQLException {
+        return deleteLookup("DELETE FROM TacGia WHERE MaTacGia=?", maTacGia, "tác giả");
+    }
+
+    public int insertTheLoai(String tenTheLoai) throws SQLException {
+        return insertLookup("INSERT INTO TheLoai (TenTheLoai) VALUES (?)", tenTheLoai, "thể loại");
+    }
+
+    public boolean updateTheLoai(int maTheLoai, String tenTheLoai) throws SQLException {
+        return updateLookup("UPDATE TheLoai SET TenTheLoai=? WHERE MaTheLoai=?", maTheLoai, tenTheLoai, "thể loại");
+    }
+
+    public boolean deleteTheLoai(int maTheLoai) throws SQLException {
+        return deleteLookup("DELETE FROM TheLoai WHERE MaTheLoai=?", maTheLoai, "thể loại");
+    }
+
     // Đếm tổng số đầu sách
     public int countTongDauSach() throws SQLException {
         String sql = "SELECT COUNT(*) FROM Sach";
